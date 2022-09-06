@@ -69,11 +69,33 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         self.double_spin_conf_thr = pyqtutils.append_double_spin(self.gridLayout, "Confidence threshold",
                                                                  self.parameters.conf_thr, min=0, max=1, step=0.01)
 
+        self.check_custom_model = pyqtutils.append_check(self.gridLayout, "Use custom model",
+                                                         self.parameters.use_custom_model)
+
+        self.browse_custom_cfg = pyqtutils.append_browse_file(self.gridLayout, "Custom config (.py)",
+                                                              self.parameters.custom_cfg)
+        self.browse_custom_weights = pyqtutils.append_browse_file(self.gridLayout, "Custom weights (.pth)",
+                                                                  self.parameters.custom_weights)
+        enabled = self.check_custom_model.isChecked()
+        self.combo_model.setEnabled(not enabled)
+        self.combo_config.setEnabled(not enabled)
+        self.browse_custom_cfg.setEnabled(enabled)
+        self.browse_custom_weights.setEnabled(enabled)
+
+        self.check_custom_model.stateChanged.connect(self.on_check_custom_changed)
+
         # PyQt -> Qt wrapping
         layout_ptr = qtconversion.PyQtToQt(self.gridLayout)
 
         # Set widget layout
         self.setLayout(layout_ptr)
+
+    def on_check_custom_changed(self, b):
+        enabled = self.check_custom_model.isChecked()
+        self.combo_model.setEnabled(not enabled)
+        self.combo_config.setEnabled(not enabled)
+        self.browse_custom_cfg.setEnabled(enabled)
+        self.browse_custom_weights.setEnabled(enabled)
 
     def on_model_changed(self, int):
         self.combo_config.clear()
@@ -100,6 +122,9 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         self.parameters.model_name = self.combo_model.currentText()
         self.parameters.model_url = self.available_cfg_ckpt[self.parameters.model_config]['ckpt']
         self.parameters.conf_thr = self.double_spin_conf_thr.value()
+        self.parameters.use_custom_model = self.check_custom_model.isChecked()
+        self.parameters.custom_cfg = self.browse_custom_cfg.path
+        self.parameters.custom_weights = self.browse_custom_weights.path
         self.parameters.update = True
         # Send signal to launch the process
         self.emitApply(self.parameters)

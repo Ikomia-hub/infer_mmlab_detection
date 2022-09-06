@@ -40,6 +40,9 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         self.model_url = "https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_x_8x8_300e_coco" \
                          "/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth "
         self.conf_thr = 0.5
+        self.use_custom_model = False
+        self.custom_cfg = ""
+        self.custom_weights = ""
         self.update = False
 
     def setParamMap(self, param_map):
@@ -50,6 +53,9 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         self.model_name = param_map["model_name"]
         self.model_url = param_map["model_url"]
         self.conf_thr = float(param_map["conf_thr"])
+        self.use_custom_model = strtobool(param_map["use_custom_model"])
+        self.custom_cfg = param_map["custom_cfg"]
+        self.custom_weights = param_map["custom_weights"]
         self.update = True
 
     def getParamMap(self):
@@ -61,6 +67,9 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         param_map["model_name"] = self.model_name
         param_map["model_url"] = self.model_url
         param_map["conf_thr"] = str(self.conf_thr)
+        param_map["use_custom_model"] = str(self.use_custom_model)
+        param_map["custom_cfg"] = self.custom_cfg
+        param_map["custom_weights"] = self.custom_weights
         return param_map
 
 
@@ -100,9 +109,13 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         param = self.getParam()
 
         if self.model is None or param.update:
-            cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", param.model_name,
-                                    param.model_config + '.py')
-            ckpt_file = param.model_url
+            if param.use_custom_model:
+                cfg_file = param.custom_cfg
+                ckpt_file = param.custom_weights
+            else:
+                cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", param.model_name,
+                                        param.model_config + '.py')
+                ckpt_file = param.model_url
             self.model = init_detector(cfg_file, ckpt_file, device='cuda:0' if param.cuda else 'cpu')
             self.classes = self.model.CLASSES
             self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
