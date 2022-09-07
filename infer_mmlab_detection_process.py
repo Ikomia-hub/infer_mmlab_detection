@@ -81,14 +81,9 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
 
     def __init__(self, name, param):
         dataprocess.C2dImageTask.__init__(self, name)
-        # Add input/output of the process here
-        # Example :  self.addInput(dataprocess.CImageIO())
-        #           self.addOutput(dataprocess.CImageIO())
         self.model = None
-        # Add graphics output
-        self.addOutput(dataprocess.CGraphicsOutput())
-        # Add numeric output
-        self.addOutput(dataprocess.CBlobMeasureIO())
+        # Add object detection output
+        self.addOutput(dataprocess.CObjectDetectionIO())
         # Create parameters class
         if param is None:
             self.setParam(InferMmlabDetectionParam())
@@ -124,23 +119,20 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
             param.update = False
         # Examples :
         # Get input :
-        input = self.getInput(0)
+        img_input = self.getInput(0)
 
         # Get output :
-        img_output = self.getOutput(0)
-        graphics_output = self.getOutput(1)
-        graphics_output.setImageIndex(0)
-        numeric_output = self.getOutput(2)
+        obj_detect_out = self.getOutput(1)
+        obj_detect_out.init("MMLab_detection", 0)
 
         # Forward input image
         self.forwardInputImage(0, 0)
 
         # Get image from input/output (numpy array):
-        srcImage = input.getImage()
+        srcImage = img_input.getImage()
 
         if self.model:
-            graphics_output.setNewLayer("MMLAB_Detection")
-            self.infer(srcImage, graphics_output, numeric_output, param.conf_thr)
+            self.infer(srcImage, obj_detect_out, param.conf_thr)
 
         # Step progress bar:
         self.emitStepProgress()
@@ -148,7 +140,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Call endTaskRun to finalize process
         self.endTaskRun()
 
-    def infer(self, img, graphics_output, numeric_output, conf_thr):
+    def infer(self, img, obj_detect_out, conf_thr):
         h, w = np.shape(img)[:2]
         out = inference_detector(self.model, img)
 
@@ -158,36 +150,14 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                 conf = float(bbox[-1])
                 if conf < conf_thr:
                     continue
+
                 prop_rect = core.GraphicsRectProperty()
                 prop_rect.pen_color = self.colors[cls]
                 x_rect = float(self.clamp(bbox[0], 0, w))
                 y_rect = float(self.clamp(bbox[1], 0, h))
                 w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
                 h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
-                name = self.classes[cls]
-                prop_rect.pen_color = self.colors[cls]
-                graphics_box = graphics_output.addRectangle(x_rect, y_rect, w_rect, h_rect, prop_rect)
-                graphics_box.setCategory(name)
-                # Label
-                prop_text = core.GraphicsTextProperty()
-                prop_text.font_size = 8
-                prop_text.color = self.colors[cls]
-                graphics_output.addText(name, x_rect, y_rect + 0.5 * h_rect, prop_text)
-                # Object results
-                results = []
-                confidence_data = dataprocess.CObjectMeasure(
-                    dataprocess.CMeasure(core.MeasureId.CUSTOM, "Confidence"),
-                    conf,
-                    graphics_box.getId(),
-                    name)
-                box_data = dataprocess.CObjectMeasure(
-                    dataprocess.CMeasure(core.MeasureId.BBOX),
-                    graphics_box.getBoundingRect(),
-                    graphics_box.getId(),
-                    name)
-                results.append(confidence_data)
-                results.append(box_data)
-                numeric_output.addObjectMeasures(results)
+                obj_detect_out.addObject(self.classes[cls], conf, x_rect, y_rect, w_rect, h_rect, self.colors[cls])
 
     def clamp(self, x, mini, maxi):
         return mini if x < mini else maxi - 1 if x > maxi - 1 else x
@@ -211,7 +181,7 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
                                 "by the train plugin."
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
-        self.info.version = "1.0.0"
+        self.info.version = "1.1.0"
         self.info.iconPath = "icons/mmlab.png"
         self.info.authors = """Chen, Kai and Wang, Jiaqi and Pang, Jiangmiao and Cao, Yuhang and
              Xiong, Yu and Li, Xiaoxiao and Sun, Shuyang and Feng, Wansen and
