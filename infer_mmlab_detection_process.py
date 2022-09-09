@@ -145,6 +145,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         out = inference_detector(self.model, img)
 
         # Transform model output in an Ikomia format to be displayed
+        index = 0
         for cls, bboxes in enumerate(out):
             for bbox in bboxes:
                 conf = float(bbox[-1])
@@ -157,7 +158,9 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                 y_rect = float(self.clamp(bbox[1], 0, h))
                 w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
                 h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
-                obj_detect_out.addObject(self.classes[cls], conf, x_rect, y_rect, w_rect, h_rect, self.colors[cls])
+                obj_detect_out.addObject(index, self.classes[cls], conf,
+                                         x_rect, y_rect, w_rect, h_rect, self.colors[cls])
+                index += 1
 
     def clamp(self, x, mini, maxi):
         return mini if x < mini else maxi - 1 if x > maxi - 1 else x
