@@ -16,10 +16,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ikomia import core, dataprocess
+from ikomia import utils, core, dataprocess
 import copy
 # Your imports below
-from distutils.util import strtobool
 from mmdet.apis import init_detector, inference_detector
 import os
 import numpy as np
@@ -49,12 +48,12 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
     def setParamMap(self, param_map):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
-        self.cuda = strtobool(param_map["cuda"])
+        self.cuda = utils.strtobool(param_map["cuda"])
         self.model_config = param_map["model_config"]
         self.model_name = param_map["model_name"]
         self.model_url = param_map["model_url"]
         self.conf_thr = float(param_map["conf_thr"])
-        self.use_custom_model = strtobool(param_map["use_custom_model"])
+        self.use_custom_model = utils.strtobool(param_map["use_custom_model"])
         self.custom_cfg = param_map["custom_cfg"]
         self.custom_weights = param_map["custom_weights"]
         self.update = True
