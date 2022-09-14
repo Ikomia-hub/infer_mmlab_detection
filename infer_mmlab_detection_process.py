@@ -23,6 +23,7 @@ from distutils.util import strtobool
 from mmdet.apis import init_detector, inference_detector
 import os
 import numpy as np
+from mmdet.core import INSTANCE_OFFSET
 
 
 # --------------------
@@ -121,10 +122,6 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Get input :
         img_input = self.getInput(0)
 
-        # Get output :
-        obj_detect_out = self.getOutput(1)
-        obj_detect_out.init("MMLab_detection", 0)
-
         # Forward input image
         self.forwardInputImage(0, 0)
 
@@ -132,7 +129,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         srcImage = img_input.getImage()
 
         if self.model:
-            self.infer(srcImage, obj_detect_out, param.conf_thr)
+            self.infer(srcImage, param.conf_thr)
 
         # Step progress bar:
         self.emitStepProgress()
@@ -140,26 +137,61 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Call endTaskRun to finalize process
         self.endTaskRun()
 
-    def infer(self, img, obj_detect_out, conf_thr):
+    def infer(self, img, conf_thr):
         h, w = np.shape(img)[:2]
         out = inference_detector(self.model, img)
 
         # Transform model output in an Ikomia format to be displayed
         index = 0
-        for cls, bboxes in enumerate(out):
-            for bbox in bboxes:
-                conf = float(bbox[-1])
-                if conf < conf_thr:
-                    continue
-
-                prop_rect = core.GraphicsRectProperty()
-                prop_rect.pen_color = self.colors[cls]
-                x_rect = float(self.clamp(bbox[0], 0, w))
-                y_rect = float(self.clamp(bbox[1], 0, h))
-                w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
-                h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
-                obj_detect_out.addObject(index, self.classes[cls], conf,
-                                         x_rect, y_rect, w_rect, h_rect, self.colors[cls])
+        if isinstance(out, list):
+            self.setOutput(dataprocess.CObjectDetectionIO(), 1)
+            # Get output :
+            obj_detect_out = self.getOutput(1)
+            obj_detect_out.init("Mmlab_detection", 0)
+            for cls, bboxes in enumerate(out):
+                for bbox in bboxes:
+                    conf = float(bbox[-1])
+                    if conf < conf_thr:
+                        continue
+                    x_rect = float(self.clamp(bbox[0], 0, w))
+                    y_rect = float(self.clamp(bbox[1], 0, h))
+                    w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
+                    h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
+                    obj_detect_out.addObject(index, self.classes[cls], conf,
+                                             x_rect, y_rect, w_rect, h_rect, self.colors[cls])
+                    index += 1
+        elif isinstance(out, tuple):
+            self.setOutput(dataprocess.CInstanceSegIO(), 1)
+            # Get output :
+            instance_seg_out = self.getOutput(1)
+            instance_seg_out.init("Mmlab_detection", 0, w, h)
+            for cls, (bboxes, masks) in enumerate(zip(*out)):
+                for bbox, mask in zip(bboxes, masks):
+                    conf = float(bbox[-1])
+                    if conf < conf_thr:
+                        continue
+                    x_rect = float(self.clamp(bbox[0], 0, w))
+                    y_rect = float(self.clamp(bbox[1], 0, h))
+                    w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
+                    h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
+                    instance_seg_out.addInstance(index, 1, cls, self.classes[cls], conf, x_rect, y_rect, w_rect, h_rect,
+                                                 mask.astype(dtype='uint8'), self.colors[cls])
+                    index += 1
+        elif isinstance(out, dict):
+            self.setOutput(dataprocess.CInstanceSegIO(), 1)
+            # Get output :
+            pan_seg_out = self.getOutput(1)
+            pan_seg_out.init("Mmlab_detection", 0, w, h)
+            pan_results = out['pan_results']
+            ids = np.unique(pan_results)[::-1]
+            legal_indices = ids != self.model.num_classes  # for VOID label
+            ids = ids[legal_indices]
+            labels = np.array([id % INSTANCE_OFFSET for id in ids], dtype=np.int64)
+            segms = (pan_results[None] == ids[:, None, None])
+            for label, seg in zip(labels, segms):
+                y, x = np.median(seg.nonzero(), axis=1)
+                pan_seg_out.addInstance(index, 0, int(label), self.classes[label], float(1), float(x), float(y), 0, 0,
+                                        seg.astype(dtype='uint8'), self.colors[label])
                 index += 1
 
     def clamp(self, x, mini, maxi):
