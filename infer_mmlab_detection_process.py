@@ -45,7 +45,7 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         self.custom_weights = ""
         self.update = False
 
-    def setParamMap(self, param_map):
+    def set_values(self, param_map):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
         self.cuda = utils.strtobool(param_map["cuda"])
@@ -58,10 +58,10 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         self.custom_weights = param_map["custom_weights"]
         self.update = True
 
-    def getParamMap(self):
+    def get_values(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
-        param_map = core.ParamMap()
+        param_map = {}
         param_map["cuda"] = str(self.cuda)
         param_map["model_config"] = self.model_config
         param_map["model_name"] = self.model_name
@@ -83,25 +83,25 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         dataprocess.C2dImageTask.__init__(self, name)
         self.model = None
         # Add object detection output
-        self.addOutput(dataprocess.CObjectDetectionIO())
+        self.add_output(dataprocess.CSemanticSegmentationIO())
         # Create parameters class
         if param is None:
-            self.setParam(InferMmlabDetectionParam())
+            self.set_param_object(InferMmlabDetectionParam())
         else:
-            self.setParam(copy.deepcopy(param))
+            self.set_param_object(copy.deepcopy(param))
 
-    def getProgressSteps(self):
+    def get_progress_steps(self):
         # Function returning the number of progress steps for this process
         # This is handled by the main progress bar of Ikomia application
         return 1
 
     def run(self):
         # Core function of your process
-        # Call beginTaskRun for initialization
-        self.beginTaskRun()
+        # Call begin_task_run for initialization
+        self.begin_task_run()
 
         # Get parameters :
-        param = self.getParam()
+        param = self.get_param_object()
 
         if self.model is None or param.update:
             if param.use_custom_model:
@@ -119,22 +119,22 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
             param.update = False
         # Examples :
         # Get input :
-        img_input = self.getInput(0)
+        img_input = self.get_input(0)
 
         # Forward input image
-        self.forwardInputImage(0, 0)
+        self.forward_input_image(0, 0)
 
         # Get image from input/output (numpy array):
-        srcImage = img_input.getImage()
+        srcImage = img_input.get_image()
 
         if self.model:
             self.infer(srcImage, param.conf_thr)
 
         # Step progress bar:
-        self.emitStepProgress()
+        self.emit_step_progress()
 
-        # Call endTaskRun to finalize process
-        self.endTaskRun()
+        # Call end_task_run to finalize process
+        self.end_task_run()
 
     def infer(self, img, conf_thr):
         h, w = np.shape(img)[:2]
@@ -143,9 +143,9 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Transform model output in an Ikomia format to be displayed
         index = 0
         if isinstance(out, list):
-            self.setOutput(dataprocess.CObjectDetectionIO(), 1)
+            self.set_output(dataprocess.CObjectDetectionIO(), 1)
             # Get output :
-            obj_detect_out = self.getOutput(1)
+            obj_detect_out = self.get_output(1)
             obj_detect_out.init("Mmlab_detection", 0)
             for cls, bboxes in enumerate(out):
                 for bbox in bboxes:
@@ -156,14 +156,16 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                     y_rect = float(self.clamp(bbox[1], 0, h))
                     w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
                     h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
-                    obj_detect_out.addObject(index, self.classes[cls], conf,
+                    obj_detect_out.add_object(index, self.classes[cls], conf,
                                              x_rect, y_rect, w_rect, h_rect, self.colors[cls])
                     index += 1
         elif isinstance(out, tuple):
-            self.setOutput(dataprocess.CInstanceSegIO(), 1)
+            self.set_output(dataprocess.CInstanceSegmentationIO(), 1)
             # Get output :
-            instance_seg_out = self.getOutput(1)
+            instance_seg_out = self.get_output(1)
             instance_seg_out.init("Mmlab_detection", 0, w, h)
+            self.set_output_color_map(0, 1, self.colors, True)
+
             for cls, (bboxes, masks) in enumerate(zip(*out)):
                 for bbox, mask in zip(bboxes, masks):
                     conf = float(bbox[-1])
@@ -173,25 +175,26 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                     y_rect = float(self.clamp(bbox[1], 0, h))
                     w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
                     h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
-                    instance_seg_out.addInstance(index, 1, cls, self.classes[cls], conf, x_rect, y_rect, w_rect, h_rect,
+                    instance_seg_out.add_instance(index, 1, cls, self.classes[cls], conf, x_rect, y_rect, w_rect, h_rect,
                                                  mask.astype(dtype='uint8'), self.colors[cls])
                     index += 1
+
         elif isinstance(out, dict):
-            self.setOutput(dataprocess.CInstanceSegIO(), 1)
+            self.set_output(dataprocess.CSemanticSegmentationIO(), 1)
             # Get output :
-            pan_seg_out = self.getOutput(1)
-            pan_seg_out.init("Mmlab_detection", 0, w, h)
+            pan_seg_out = self.get_output(1)
             pan_results = out['pan_results']
             ids = np.unique(pan_results)[::-1]
             legal_indices = ids != self.model.num_classes  # for VOID label
             ids = ids[legal_indices]
             labels = np.array([id % INSTANCE_OFFSET for id in ids], dtype=np.int64)
-            segms = (pan_results[None] == ids[:, None, None])
-            for label, seg in zip(labels, segms):
-                y, x = np.median(seg.nonzero(), axis=1)
-                pan_seg_out.addInstance(index, 0, int(label), self.classes[label], float(1), float(x), float(y), 0, 0,
-                                        seg.astype(dtype='uint8'), self.colors[label])
-                index += 1
+            ids_map = {k:v for k,v in zip(ids, labels)}
+            new_pan_results = np.copy(pan_results)
+            for k, v in ids_map.items(): new_pan_results[pan_results == k] = v
+            pan_seg_out.set_class_names(self.classes)
+            self.set_output_color_map(0, 1, self.colors, False)
+            pan_seg_out.set_mask(np.array(new_pan_results, dtype='uint8'))
+
 
     def clamp(self, x, mini, maxi):
         return mini if x < mini else maxi - 1 if x > maxi - 1 else x
@@ -207,7 +210,7 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         dataprocess.CTaskFactory.__init__(self)
         # Set process information as string here
         self.info.name = "infer_mmlab_detection"
-        self.info.shortDescription = "Inference for MMDET from MMLAB detection models"
+        self.info.short_description = "Inference for MMDET from MMLAB detection models"
         self.info.description = "If custom training is disabled, models will come from MMLAB's model zoo." \
                                 "If not, you can also choose to load a model you trained yourself with our plugin " \
                                 "train_mmlab_detection. In this case make sure you give to the plugin" \
@@ -215,8 +218,8 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
                                 "by the train plugin."
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
-        self.info.version = "1.1.0"
-        self.info.iconPath = "icons/mmlab.png"
+        self.info.version = "1.2.0"
+        self.info.icon_path = "icons/mmlab.png"
         self.info.authors = """Chen, Kai and Wang, Jiaqi and Pang, Jiangmiao and Cao, Yuhang and
              Xiong, Yu and Li, Xiaoxiao and Sun, Shuyang and Feng, Wansen and
              Liu, Ziwei and Xu, Jiarui and Zhang, Zheng and Cheng, Dazhi and
@@ -228,7 +231,7 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         self.info.year = 2019
         self.info.license = "Apache-2.0 license"
         # URL of documentation
-        self.info.documentationLink = "https://mmdetection.readthedocs.io/en/latest/"
+        self.info.documentation_link = "https://mmdetection.readthedocs.io/en/latest/"
         # Code source repository
         self.info.repository = "https://github.com/open-mmlab/mmdetection"
         # Keywords used for search

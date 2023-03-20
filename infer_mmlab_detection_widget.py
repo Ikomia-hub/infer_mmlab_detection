@@ -88,7 +88,7 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         layout_ptr = qtconversion.PyQtToQt(self.gridLayout)
 
         # Set widget layout
-        self.setLayout(layout_ptr)
+        self.set_layout(layout_ptr)
 
     def on_check_custom_changed(self, b):
         enabled = self.check_custom_model.isChecked()
@@ -112,7 +112,7 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
                 self.combo_config.addItem(experiment_name)
             self.combo_config.setCurrentText(list(self.available_cfg_ckpt.keys())[0])
 
-    def onApply(self):
+    def on_apply(self):
         # Apply button clicked slot
 
         # Get parameters from widget
@@ -127,7 +127,7 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         self.parameters.custom_weights = self.browse_custom_weights.path
         self.parameters.update = True
         # Send signal to launch the process
-        self.emitApply(self.parameters)
+        self.emit_apply(self.parameters)
 
 
 # --------------------
