@@ -66,8 +66,8 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
 
         self.check_cuda.setEnabled(is_cuda_available())
 
-        self.double_spin_conf_thr = pyqtutils.append_double_spin(self.gridLayout, "Confidence threshold",
-                                                                 self.parameters.conf_thr, min=0, max=1, step=0.01)
+        self.double_spin_conf_thres = pyqtutils.append_double_spin(self.gridLayout, "Confidence threshold",
+                                                                 self.parameters.conf_thres, min=0, max=1, step=0.01)
 
         self.check_custom_model = pyqtutils.append_check(self.gridLayout, "Use custom model",
                                                          self.parameters.use_custom_model)
@@ -75,7 +75,7 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         self.browse_custom_cfg = pyqtutils.append_browse_file(self.gridLayout, "Custom config (.py)",
                                                               self.parameters.custom_cfg)
         self.browse_custom_weights = pyqtutils.append_browse_file(self.gridLayout, "Custom weights (.pth)",
-                                                                  self.parameters.custom_weights)
+                                                                  self.parameters.model_path)
         enabled = self.check_custom_model.isChecked()
         self.combo_model.setEnabled(not enabled)
         self.combo_config.setEnabled(not enabled)
@@ -121,10 +121,10 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         self.parameters.model_config = self.combo_config.currentText()
         self.parameters.model_name = self.combo_model.currentText()
         self.parameters.model_url = self.available_cfg_ckpt[self.parameters.model_config]['ckpt']
-        self.parameters.conf_thr = self.double_spin_conf_thr.value()
+        self.parameters.conf_thres = self.double_spin_conf_thres.value()
         self.parameters.use_custom_model = self.check_custom_model.isChecked()
         self.parameters.custom_cfg = self.browse_custom_cfg.path
-        self.parameters.custom_weights = self.browse_custom_weights.path
+        self.parameters.model_path = self.browse_custom_weights.path
         self.parameters.update = True
         # Send signal to launch the process
         self.emit_apply(self.parameters)
