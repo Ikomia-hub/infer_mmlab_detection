@@ -104,12 +104,11 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         if os.path.isfile(yaml_file):
             with open(yaml_file, "r") as f:
                 models_list = yaml.load(f, Loader=yaml.FullLoader)['Models']
-            self.available_cfg_ckpt = {model_dict["Name"]: {'cfg': model_dict["Config"], 'ckpt': model_dict["Weights"]}
-                                       for
+            self.available_cfg_ckpt = {model_dict["Config"]: model_dict["Weights"] for
                                        model_dict in models_list
                                        if "Weights" in model_dict}
-            for experiment_name in self.available_cfg_ckpt.keys():
-                self.combo_config.addItem(experiment_name)
+            for cfg in self.available_cfg_ckpt.keys():
+                self.combo_config.addItem(cfg)
             self.combo_config.setCurrentText(list(self.available_cfg_ckpt.keys())[0])
 
     def on_apply(self):
@@ -120,7 +119,7 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         self.parameters.cuda = self.check_cuda.isChecked()
         self.parameters.model_config = self.combo_config.currentText()
         self.parameters.model_name = self.combo_model.currentText()
-        self.parameters.model_url = self.available_cfg_ckpt[self.parameters.model_config]['ckpt']
+        self.parameters.model_url = self.available_cfg_ckpt[self.parameters.model_config]
         self.parameters.conf_thres = self.double_spin_conf_thres.value()
         self.parameters.use_custom_model = self.check_custom_model.isChecked()
         self.parameters.custom_cfg = self.browse_custom_cfg.path

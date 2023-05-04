@@ -19,10 +19,12 @@
 from ikomia import utils, core, dataprocess
 import copy
 # Your imports below
-from mmdet.apis import init_detector, inference_detector
+from mmdet.utils import register_all_modules
+from mmdet.apis import DetInferencer
 import os
 import numpy as np
-from mmdet.core import INSTANCE_OFFSET
+from panopticapi.utils import rgb2id
+from pycocotools.mask import decode
 
 
 # --------------------
@@ -37,10 +39,10 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         self.cuda = True
         self.model_name_or_path = ""
         self.config = ""
-        self.model_config = "yolox_tiny_8x8_300e_coco"
+        self.model_config = "configs/yolox/yolox_s_8xb8-300e_coco.py"
         self.model_name = "yolox"
-        self.model_url = "https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_x_8x8_300e_coco" \
-                         "/yolox_x_8x8_300e_coco_20211126_140254-1ef88d67.pth "
+        self.model_url = "https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_s_8x8_300e_coco/" \
+                         "yolox_s_8x8_300e_coco_20211121_095711-4592a793.pth"
         self.conf_thres = 0.5
         self.use_custom_model = False
         self.custom_cfg = ""
@@ -88,6 +90,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
     def __init__(self, name, param):
         dataprocess.C2dImageTask.__init__(self, name)
         self.model = None
+        register_all_modules()
         # Add object detection output
         self.add_output(dataprocess.CSemanticSegmentationIO())
         # Create parameters class
@@ -123,11 +126,10 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                 cfg_file = param.custom_cfg
                 ckpt_file = param.model_path
             else:
-                cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", param.model_name,
-                                        param.model_config + '.py')
+                cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), param.model_config)
                 ckpt_file = param.model_url
-            self.model = init_detector(cfg_file, ckpt_file, device='cuda:0' if param.cuda else 'cpu')
-            self.classes = self.model.CLASSES
+            self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda else 'cpu')
+            self.classes = self.model.model.dataset_meta['classes']
             self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
             self.colors = [[int(c[0]), int(c[1]), int(c[2])] for c in self.colors]
             print("Inference will run on " + ('cuda' if param.cuda else 'cpu'))
@@ -149,68 +151,63 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         self.emit_step_progress()
 
         # Call end_task_run to finalize process
+        # Call end_task_run to finalize process
         self.end_task_run()
 
     def infer(self, img, conf_thr):
         h, w = np.shape(img)[:2]
-        out = inference_detector(self.model, img)
-
+        out = self.model(img, draw_pred=False)['predictions'][0]
         # Transform model output in an Ikomia format to be displayed
         index = 0
-        if isinstance(out, list):
+        self.get_output(1).clear_data()
+        if "panoptic_seg" in out:
+            self.set_output(dataprocess.CSemanticSegmentationIO(), 1)
+            # Get output :
+            pan_seg_out = self.get_output(1)
+            pan_results = rgb2id(out['panoptic_seg'])
+            pan_seg_out.set_class_names(self.classes)
+            pan_seg_out.set_mask(pan_results.astype(dtype='uint8'))
+            self.set_output_color_map(0, 1, self.colors, True)
+
+        elif "bboxes" in out and "masks" in out:
+            self.set_output(dataprocess.CInstanceSegmentationIO(), 1)
+            # Get output :
+            obj_detect_out = self.get_output(1)
+            obj_detect_out.init("Mmlab_detection", 0, w, h)
+            for bbox, label, score, mask in zip(out["bboxes"], out["labels"], out["scores"], out["masks"]):
+                conf = float(score)
+                if conf < conf_thr:
+                    continue
+                x_rect = float(self.clamp(bbox[0], 0, w))
+                y_rect = float(self.clamp(bbox[1], 0, h))
+                w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
+                h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
+                cls = int(label)
+                mask = decode(mask)
+                obj_detect_out.add_object(index, 0,
+                                          cls, self.classes[cls], conf,
+                                         x_rect, y_rect, w_rect, h_rect, mask, self.colors[cls])
+                index += 1
+            self.set_output_color_map(0, 1, self.colors, True)
+        elif "bboxes" in out:
             self.set_output(dataprocess.CObjectDetectionIO(), 1)
             # Get output :
             obj_detect_out = self.get_output(1)
             obj_detect_out.init("Mmlab_detection", 0)
-            for cls, bboxes in enumerate(out):
-                for bbox in bboxes:
-                    conf = float(bbox[-1])
-                    if conf < conf_thr:
-                        continue
-                    x_rect = float(self.clamp(bbox[0], 0, w))
-                    y_rect = float(self.clamp(bbox[1], 0, h))
-                    w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
-                    h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
-                    print(conf)
-                    obj_detect_out.add_object(index, self.classes[cls], conf,
-                                             x_rect, y_rect, w_rect, h_rect, self.colors[cls])
-                    index += 1
-        elif isinstance(out, tuple):
-            self.set_output(dataprocess.CInstanceSegmentationIO(), 1)
-            # Get output :
-            instance_seg_out = self.get_output(1)
-            instance_seg_out.init("Mmlab_detection", 0, w, h)
-            self.set_output_color_map(0, 1, self.colors, True)
-
-            for cls, (bboxes, masks) in enumerate(zip(*out)):
-                for bbox, mask in zip(bboxes, masks):
-                    conf = float(bbox[-1])
-                    if conf < conf_thr:
-                        continue
-                    x_rect = float(self.clamp(bbox[0], 0, w))
-                    y_rect = float(self.clamp(bbox[1], 0, h))
-                    w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
-                    h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
-                    instance_seg_out.add_instance(index, 1, cls, self.classes[cls], conf, x_rect, y_rect, w_rect, h_rect,
-                                                 mask.astype(dtype='uint8'), self.colors[cls])
-                    index += 1
-
-        elif isinstance(out, dict):
-            self.set_output(dataprocess.CSemanticSegmentationIO(), 1)
-            # Get output :
-            pan_seg_out = self.get_output(1)
-            pan_results = out['pan_results']
-            ids = np.unique(pan_results)[::-1]
-            legal_indices = ids != self.model.num_classes  # for VOID label
-            ids = ids[legal_indices]
-            labels = np.array([id % INSTANCE_OFFSET for id in ids], dtype=np.int64)
-            ids_map = {k:v for k,v in zip(ids, labels)}
-            new_pan_results = np.copy(pan_results)
-            for k, v in ids_map.items(): new_pan_results[pan_results == k] = v
-            pan_seg_out.set_class_names(self.classes)
-            self.set_output_color_map(0, 1, self.colors, False)
-            pan_seg_out.set_mask(np.array(new_pan_results, dtype='uint8'))
-
+            for bbox, label, score in zip(out["bboxes"], out["labels"], out["scores"]):
+                conf = float(score)
+                if conf < conf_thr:
+                    continue
+                x_rect = float(self.clamp(bbox[0], 0, w))
+                y_rect = float(self.clamp(bbox[1], 0, h))
+                w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
+                h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
+                cls = int(label)
+                obj_detect_out.add_object(index, self.classes[cls], conf,
+                                         x_rect, y_rect, w_rect, h_rect, self.colors[cls])
+                index += 1
+        else:
+            print("This model task is not one of Object Detection, Instance Segmentation or Panoptic Segmentation. Try another one")
 
     def clamp(self, x, mini, maxi):
         return mini if x < mini else maxi - 1 if x > maxi - 1 else x
