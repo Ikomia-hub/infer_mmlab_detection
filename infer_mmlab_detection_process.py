@@ -37,47 +37,41 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         core.CWorkflowTaskParam.__init__(self)
         # Place default value initialization here
         self.cuda = True
-        self.model_name_or_path = ""
-        self.config = ""
         self.model_config = "configs/yolox/yolox_s_8xb8-300e_coco.py"
         self.model_name = "yolox"
         self.model_url = "https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_s_8x8_300e_coco/" \
                          "yolox_s_8x8_300e_coco_20211121_095711-4592a793.pth"
         self.conf_thres = 0.5
         self.use_custom_model = False
-        self.custom_cfg = ""
-        self.model_path = ""
+        self.config_file = ""
+        self.model_weight_file = ""
         self.update = False
 
     def set_values(self, param_map):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
-        self.model_name_or_path = param_map["model_name_or_path"]
-        self.config = param_map["config"]
         self.cuda = utils.strtobool(param_map["cuda"])
         self.model_config = param_map["model_config"]
         self.model_name = param_map["model_name"]
         self.model_url = param_map["model_url"]
         self.conf_thres = float(param_map["conf_thres"])
         self.use_custom_model = utils.strtobool(param_map["use_custom_model"])
-        self.custom_cfg = param_map["custom_cfg"]
-        self.model_path = param_map["model_path"]
+        self.config_file = param_map["config_file"]
+        self.model_weight_file = param_map["model_weight_file"]
         self.update = True
 
     def get_values(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
         param_map = {}
-        param_map["model_name_or_path"] = self.model_name_or_path
-        param_map["config"] = self.config
         param_map["cuda"] = str(self.cuda)
         param_map["model_config"] = self.model_config
         param_map["model_name"] = self.model_name
         param_map["model_url"] = self.model_url
         param_map["conf_thres"] = str(self.conf_thres)
         param_map["use_custom_model"] = str(self.use_custom_model)
-        param_map["custom_cfg"] = self.custom_cfg
-        param_map["model_path"] = self.model_path
+        param_map["config_file"] = self.config_file
+        param_map["model_weight_file"] = self.model_weight_file
         return param_map
 
 
@@ -113,18 +107,12 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         param = self.get_param_object()
 
         if self.model is None or param.update:
-            if param.model_name_or_path != "":
-                if os.path.isfile(param.model_name_or_path):
+            if param.model_weight_file != "":
                     param.use_custom_model = True
-                    param.model_path = param.model_name_or_path
-                    if os.path.isfile(param.config):
-                        param.custom_cfg = param.config
-                else:
-                    param.model_name = param.model_name_or_path
 
             if param.use_custom_model:
-                cfg_file = param.custom_cfg
-                ckpt_file = param.model_path
+                cfg_file = param.config_file
+                ckpt_file = param.model_weight_file
             else:
                 cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), param.model_config)
                 ckpt_file = param.model_url

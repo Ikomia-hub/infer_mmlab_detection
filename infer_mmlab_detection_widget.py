@@ -73,9 +73,9 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
                                                          self.parameters.use_custom_model)
 
         self.browse_custom_cfg = pyqtutils.append_browse_file(self.gridLayout, "Custom config (.py)",
-                                                              self.parameters.custom_cfg)
+                                                              self.parameters.config_file)
         self.browse_custom_weights = pyqtutils.append_browse_file(self.gridLayout, "Custom weights (.pth)",
-                                                                  self.parameters.model_path)
+                                                                  self.parameters.model_weight_file)
         enabled = self.check_custom_model.isChecked()
         self.combo_model.setEnabled(not enabled)
         self.combo_config.setEnabled(not enabled)
@@ -122,8 +122,8 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         self.parameters.model_url = self.available_cfg_ckpt[self.parameters.model_config]
         self.parameters.conf_thres = self.double_spin_conf_thres.value()
         self.parameters.use_custom_model = self.check_custom_model.isChecked()
-        self.parameters.custom_cfg = self.browse_custom_cfg.path
-        self.parameters.model_path = self.browse_custom_weights.path
+        self.parameters.config_file = self.browse_custom_cfg.path
+        self.parameters.model_weight_file = self.browse_custom_weights.path
         self.parameters.update = True
         # Send signal to launch the process
         self.emit_apply(self.parameters)
