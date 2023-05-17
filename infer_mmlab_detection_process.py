@@ -86,7 +86,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         self.model = None
         register_all_modules()
         # Add object detection output
-        self.add_output(dataprocess.CSemanticSegmentationIO())
+        self.add_output(dataprocess.CObjectDetectionIO())
         # Create parameters class
         if param is None:
             self.set_param_object(InferMmlabDetectionParam())
