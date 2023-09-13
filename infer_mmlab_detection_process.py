@@ -40,8 +40,6 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         self.cuda = True
         self.model_config = "yolox_s_8x8_300e_coco"
         self.model_name = "yolox"
-        self.model_url = "https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_s_8x8_300e_coco/" \
-                         "yolox_s_8x8_300e_coco_20211121_095711-4592a793.pth"
         self.conf_thres = 0.5
         self.use_custom_model = False
         self.config_file = ""
@@ -54,7 +52,6 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         self.cuda = utils.strtobool(param_map["cuda"])
         self.model_config = param_map["model_config"]
         self.model_name = param_map["model_name"]
-        self.model_url = param_map["model_url"]
         self.conf_thres = float(param_map["conf_thres"])
         self.use_custom_model = utils.strtobool(param_map["use_custom_model"])
         self.config_file = param_map["config_file"]
@@ -68,7 +65,6 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         param_map["cuda"] = str(self.cuda)
         param_map["model_config"] = self.model_config
         param_map["model_name"] = self.model_name
-        param_map["model_url"] = self.model_url
         param_map["conf_thres"] = str(self.conf_thres)
         param_map["use_custom_model"] = str(self.use_custom_model)
         param_map["config_file"] = self.config_file
