@@ -25,6 +25,7 @@ import os
 import numpy as np
 from panopticapi.utils import rgb2id
 from pycocotools.mask import decode
+import yaml
 
 
 # --------------------
@@ -37,7 +38,7 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
         core.CWorkflowTaskParam.__init__(self)
         # Place default value initialization here
         self.cuda = True
-        self.model_config = "configs/yolox/yolox_s_8xb8-300e_coco.py"
+        self.model_config = "yolox_s_8x8_300e_coco"
         self.model_name = "yolox"
         self.model_url = "https://download.openmmlab.com/mmdetection/v2.0/yolox/yolox_s_8x8_300e_coco/" \
                          "yolox_s_8x8_300e_coco_20211121_095711-4592a793.pth"
@@ -108,14 +109,35 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
 
         if self.model is None or param.update:
             if param.model_weight_file != "":
-                    param.use_custom_model = True
+                param.use_custom_model = True
 
-            if param.use_custom_model:
-                cfg_file = param.config_file
-                ckpt_file = param.model_weight_file
+            if not param.use_custom_model:
+                yaml_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", param.model_name, "metafile.yml")
+
+                if param.model_config.endswith('.py'):
+                    param.model_config = param.model_config[:-3]
+                if os.path.isfile(yaml_file):
+                    with open(yaml_file, "r") as f:
+                        models_list = yaml.load(f, Loader=yaml.FullLoader)['Models']
+
+                    available_cfg_ckpt = {model_dict["Name"]: {'cfg': model_dict["Config"],
+                                                               'ckpt': model_dict["Weights"]}
+                                          for model_dict in models_list}
+                    if param.model_config in available_cfg_ckpt:
+                        cfg_file = available_cfg_ckpt[param.model_config]['cfg']
+                        ckpt_file = available_cfg_ckpt[param.model_config]['ckpt']
+                        cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), cfg_file)
+                    else:
+                        raise Exception(
+                            f"{param.model_config} does not exist for {param.model_name}. Available configs for are {', '.join(list(available_cfg_ckpt.keys()))}")
+                else:
+                    raise Exception(f"Model name {param.model_name} does not exist.")
             else:
-                cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), param.model_config)
-                ckpt_file = param.model_url
+                if os.path.isfile(param.model_config):
+                    cfg_file = param.model_config
+                else:
+                    cfg_file = param.config_file
+                ckpt_file = param.model_weight_file
             self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda else 'cpu')
             self.classes = self.model.model.dataset_meta['classes']
             self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
@@ -138,7 +160,6 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Step progress bar:
         self.emit_step_progress()
 
-        # Call end_task_run to finalize process
         # Call end_task_run to finalize process
         self.end_task_run()
 

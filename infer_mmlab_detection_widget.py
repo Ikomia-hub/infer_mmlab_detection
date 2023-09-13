@@ -104,7 +104,7 @@ class InferMmlabDetectionWidget(core.CWorkflowTaskWidget):
         if os.path.isfile(yaml_file):
             with open(yaml_file, "r") as f:
                 models_list = yaml.load(f, Loader=yaml.FullLoader)['Models']
-            self.available_cfg_ckpt = {model_dict["Config"]: model_dict["Weights"] for
+            self.available_cfg_ckpt = {os.path.basename(model_dict["Config"]): model_dict["Weights"] for
                                        model_dict in models_list
                                        if "Weights" in model_dict}
             for cfg in self.available_cfg_ckpt.keys():
