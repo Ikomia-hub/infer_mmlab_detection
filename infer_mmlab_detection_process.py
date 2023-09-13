@@ -163,6 +163,26 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Call end_task_run to finalize process
         self.end_task_run()
 
+    @staticmethod
+    def get_model_zoo():
+        configs_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs")
+        available_pairs = []
+        for model_name in os.listdir(configs_folder):
+            if model_name.startswith('_'):
+                continue
+            yaml_file = os.path.join(configs_folder, model_name, "metafile.yml")
+            if os.path.isfile(yaml_file):
+                with open(yaml_file, "r") as f:
+                    models_list = yaml.load(f, Loader=yaml.FullLoader)
+                    if 'Models' in models_list:
+                        models_list = models_list['Models']
+                    if not isinstance(models_list, list):
+                        continue
+                for model_dict in models_list:
+                    available_pairs.append({"model_name": model_name, "model_config": os.path.basename(model_dict["Name"])})
+        return available_pairs
+
+
     def infer(self, img, conf_thr):
         h, w = np.shape(img)[:2]
         out = self.model(img, draw_pred=False)['predictions'][0]
