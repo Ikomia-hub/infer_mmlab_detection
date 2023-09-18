@@ -107,9 +107,7 @@ wf.run_on(url="https://raw.githubusercontent.com/Ikomia-hub/infer_mmlab_detectio
 MMLab framework for object detection and instance segmentation offers a large range of models. To ease the choice of couple (model_name/model_config), you can call the function *get_model_zoo()* to get a list of possible values.
 
 ```python
-from ikomia.core import IODataType
 from ikomia.dataprocess.workflow import Workflow
-from ikomia.utils.displayIO import display
 
 # Init your workflow
 wf = Workflow()
@@ -126,7 +124,6 @@ print(detector.get_model_zoo())
 Every algorithm produces specific outputs, yet they can be explored them the same way using the Ikomia API. For a more in-depth understanding of managing algorithm outputs, please refer to the [documentation](https://ikomia-dev.github.io/python-api-documentation/advanced_guide/IO_management.html).
 
 ```python
-import ikomia
 from ikomia.dataprocess.workflow import Workflow
 
 # Init your workflow
@@ -139,7 +136,7 @@ algo = wf.add_task(name="infer_mmlab_detection", auto_connect=True)
 wf.run_on(url="https://raw.githubusercontent.com/Ikomia-hub/infer_mmlab_detection/main/images/work.jpg")
 
 # Iterate over outputs
-for output in algo.get_outputs()
+for output in algo.get_outputs():
     # Print information
     print(output)
     # Export it to JSON
