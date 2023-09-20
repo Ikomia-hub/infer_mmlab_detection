@@ -104,36 +104,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         param = self.get_param_object()
 
         if self.model is None or param.update:
-            if param.model_weight_file != "":
-                param.use_custom_model = True
-
-            if not param.use_custom_model:
-                yaml_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", param.model_name, "metafile.yml")
-
-                if param.model_config.endswith('.py'):
-                    param.model_config = param.model_config[:-3]
-                if os.path.isfile(yaml_file):
-                    with open(yaml_file, "r") as f:
-                        models_list = yaml.load(f, Loader=yaml.FullLoader)['Models']
-
-                    available_cfg_ckpt = {model_dict["Name"]: {'cfg': model_dict["Config"],
-                                                               'ckpt': model_dict["Weights"]}
-                                          for model_dict in models_list}
-                    if param.model_config in available_cfg_ckpt:
-                        cfg_file = available_cfg_ckpt[param.model_config]['cfg']
-                        ckpt_file = available_cfg_ckpt[param.model_config]['ckpt']
-                        cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), cfg_file)
-                    else:
-                        raise Exception(
-                            f"{param.model_config} does not exist for {param.model_name}. Available configs for are {', '.join(list(available_cfg_ckpt.keys()))}")
-                else:
-                    raise Exception(f"Model name {param.model_name} does not exist.")
-            else:
-                if os.path.isfile(param.model_config):
-                    cfg_file = param.model_config
-                else:
-                    cfg_file = param.config_file
-                ckpt_file = param.model_weight_file
+            cfg_file, ckpt_file = self.get_absolute_paths(param)
             self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda else 'cpu')
             self.classes = self.model.model.dataset_meta['classes']
             self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
@@ -158,6 +129,39 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
 
         # Call end_task_run to finalize process
         self.end_task_run()
+
+    @staticmethod
+    def get_absolute_paths(param):
+        if param.model_weight_file == "":
+            yaml_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", param.model_name,
+                                     "metafile.yml")
+
+            if param.model_config.endswith('.py'):
+                param.model_config = param.model_config[:-3]
+            if os.path.isfile(yaml_file):
+                with open(yaml_file, "r") as f:
+                    models_list = yaml.load(f, Loader=yaml.FullLoader)['Models']
+
+                available_cfg_ckpt = {model_dict["Name"]: {'cfg': model_dict["Config"],
+                                                           'ckpt': model_dict["Weights"]}
+                                      for model_dict in models_list}
+                if param.model_config in available_cfg_ckpt:
+                    cfg_file = available_cfg_ckpt[param.model_config]['cfg']
+                    ckpt_file = available_cfg_ckpt[param.model_config]['ckpt']
+                    cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), cfg_file)
+                    return cfg_file, ckpt_file
+                else:
+                    raise Exception(
+                        f"{param.model_config} does not exist for {param.model_name}. Available configs for are {', '.join(list(available_cfg_ckpt.keys()))}")
+            else:
+                raise Exception(f"Model name {param.model_name} does not exist.")
+        else:
+            if os.path.isfile(param.model_config):
+                cfg_file = param.model_config
+            else:
+                cfg_file = param.config_file
+            ckpt_file = param.model_weight_file
+            return cfg_file, ckpt_file
 
     @staticmethod
     def get_model_zoo():
