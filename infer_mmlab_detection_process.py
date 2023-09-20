@@ -253,11 +253,6 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         # Set process information as string here
         self.info.name = "infer_mmlab_detection"
         self.info.short_description = "Inference for MMDET from MMLAB detection models"
-        self.info.description = "If custom training is disabled, models will come from MMLAB's model zoo." \
-                                "If not, you can also choose to load a model you trained yourself with our plugin " \
-                                "train_mmlab_detection. In this case make sure you give to the plugin" \
-                                "a config file (.py) and a model file (.pth). Both of these files are produced " \
-                                "by the train plugin."
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
         self.info.version = "1.3.0"
