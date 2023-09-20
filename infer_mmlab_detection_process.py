@@ -26,6 +26,7 @@ import numpy as np
 from panopticapi.utils import rgb2id
 from pycocotools.mask import decode
 import yaml
+import torch
 
 
 # --------------------
@@ -103,6 +104,10 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Get parameters :
         param = self.get_param_object()
 
+        # Set cache dir in the algorithm folder to simplify deployment
+        old_torch_hub = torch.hub.get_dir()
+        torch.hub.set_dir(os.path.join(os.path.dirname(__file__), "models"))
+
         if self.model is None or param.update:
             cfg_file, ckpt_file = self.get_absolute_paths(param)
             self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda else 'cpu')
@@ -123,6 +128,9 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
 
         if self.model:
             self.infer(srcImage, param.conf_thres)
+
+        # Reset torch cache dir for next algorithms in the workflow
+        torch.hub.set_dir(old_torch_hub)
 
         # Step progress bar:
         self.emit_step_progress()
