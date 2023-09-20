@@ -263,7 +263,7 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         self.info.short_description = "Inference for MMDET from MMLAB detection models"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
-        self.info.version = "1.3.0"
+        self.info.version = "2.0.0"
         self.info.icon_path = "icons/mmlab.png"
         self.info.authors = """Chen, Kai and Wang, Jiaqi and Pang, Jiangmiao and Cao, Yuhang and
              Xiong, Yu and Li, Xiaoxiao and Sun, Shuyang and Feng, Wansen and
