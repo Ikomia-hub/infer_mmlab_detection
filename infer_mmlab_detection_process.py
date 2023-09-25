@@ -109,12 +109,13 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         torch.hub.set_dir(os.path.join(os.path.dirname(__file__), "models"))
 
         if self.model is None or param.update:
+            cuda_available = torch.cuda.is_available()
             cfg_file, ckpt_file = self.get_absolute_paths(param)
-            self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda else 'cpu')
+            self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda and cuda_available else 'cpu')
             self.classes = self.model.model.dataset_meta['classes']
             self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
             self.colors = [[int(c[0]), int(c[1]), int(c[2])] for c in self.colors]
-            print("Inference will run on " + ('cuda' if param.cuda else 'cpu'))
+            print("Inference will run on " + ('cuda' if param.cuda and cuda_available else 'cpu'))
             param.update = False
         # Examples :
         # Get input :
