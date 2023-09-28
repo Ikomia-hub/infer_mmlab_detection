@@ -279,7 +279,8 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         # URL of documentation
         self.info.documentation_link = "https://mmdetection.readthedocs.io/en/latest/"
         # Code source repository
-        self.info.repository = "https://github.com/open-mmlab/mmdetection"
+        self.info.repository = "https://github.com/Ikomia-hub/infer_mmlab_detection"
+        self.info.original_repository = "https://github.com/open-mmlab/mmdetection"
         # Keywords used for search
         self.info.keywords = "mmdet, mmlab, detection, yolo, yolor, yolox, mask, rcnn"
 
