@@ -283,6 +283,8 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         self.info.original_repository = "https://github.com/open-mmlab/mmdetection"
         # Keywords used for search
         self.info.keywords = "mmdet, mmlab, detection, yolo, yolor, yolox, mask, rcnn"
+        self.info.algo_type = core.AlgoType.INFER
+        self.info.algo_tasks = "OBJECT_DETECTION"
 
     def create(self, param=None):
         # Create process object
