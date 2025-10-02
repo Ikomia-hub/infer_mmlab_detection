@@ -15,18 +15,19 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-from ikomia import utils, core, dataprocess
 import copy
-# Your imports below
-from mmdet.utils import register_all_modules
-from mmdet.apis import DetInferencer
 import os
+import yaml
+
+import torch
 import numpy as np
 from panopticapi.utils import rgb2id
 from pycocotools.mask import decode
-import yaml
-import torch
+
+from ikomia import utils, core, dataprocess
+
+from mmdet.utils import register_all_modules
+from mmdet.apis import DetInferencer
 
 
 # --------------------
@@ -62,14 +63,15 @@ class InferMmlabDetectionParam(core.CWorkflowTaskParam):
     def get_values(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
-        param_map = {}
-        param_map["cuda"] = str(self.cuda)
-        param_map["model_config"] = self.model_config
-        param_map["model_name"] = self.model_name
-        param_map["conf_thres"] = str(self.conf_thres)
-        param_map["use_custom_model"] = str(self.use_custom_model)
-        param_map["config_file"] = self.config_file
-        param_map["model_weight_file"] = self.model_weight_file
+        param_map = {
+            "cuda": str(self.cuda),
+            "model_config": self.model_config,
+            "model_name": self.model_name,
+            "conf_thres": str(self.conf_thres),
+            "use_custom_model": str(self.use_custom_model),
+            "config_file": self.config_file,
+            "model_weight_file": self.model_weight_file
+        }
         return param_map
 
 
@@ -81,10 +83,11 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
 
     def __init__(self, name, param):
         dataprocess.C2dImageTask.__init__(self, name)
-        self.model = None
-        register_all_modules()
         # Add object detection output
         self.add_output(dataprocess.CObjectDetectionIO())
+        self.model = None
+        register_all_modules()
+
         # Create parameters class
         if param is None:
             self.set_param_object(InferMmlabDetectionParam())
@@ -95,6 +98,20 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Function returning the number of progress steps for this process
         # This is handled by the main progress bar of Ikomia application
         return 1
+
+    def _load_model(self):
+        param = self.get_param_object()
+        cuda_available = torch.cuda.is_available()
+        cfg_file, ckpt_file = self.get_absolute_paths(param)
+        self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda and cuda_available else 'cpu')
+        self.classes = self.model.model.dataset_meta['classes']
+        self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
+        self.colors = [[int(c[0]), int(c[1]), int(c[2])] for c in self.colors]
+        print("Inference will run on " + ('cuda' if param.cuda and cuda_available else 'cpu'))
+        param.update = False
+
+    def init_long_process(self):
+        self._load_model()
 
     def run(self):
         # Core function of your process
@@ -108,16 +125,9 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         old_torch_hub = torch.hub.get_dir()
         torch.hub.set_dir(os.path.join(os.path.dirname(__file__), "models"))
 
-        if self.model is None or param.update:
-            cuda_available = torch.cuda.is_available()
-            cfg_file, ckpt_file = self.get_absolute_paths(param)
-            self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda and cuda_available else 'cpu')
-            self.classes = self.model.model.dataset_meta['classes']
-            self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
-            self.colors = [[int(c[0]), int(c[1]), int(c[2])] for c in self.colors]
-            print("Inference will run on " + ('cuda' if param.cuda and cuda_available else 'cpu'))
-            param.update = False
-        # Examples :
+        if param.update:
+            self._load_model()
+
         # Get input :
         img_input = self.get_input(0)
 
@@ -125,10 +135,10 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         self.forward_input_image(0, 0)
 
         # Get image from input/output (numpy array):
-        srcImage = img_input.get_image()
+        src_image = img_input.get_image()
 
         if self.model:
-            self.infer(srcImage, param.conf_thres)
+            self.infer(src_image, param.conf_thres)
 
         # Reset torch cache dir for next algorithms in the workflow
         torch.hub.set_dir(old_torch_hub)
@@ -198,6 +208,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         # Transform model output in an Ikomia format to be displayed
         index = 0
         self.get_output(1).clear_data()
+
         if "panoptic_seg" in out:
             self.set_output(dataprocess.CSemanticSegmentationIO(), 1)
             # Get output :
@@ -206,25 +217,26 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
             pan_seg_out.set_class_names(self.classes)
             pan_seg_out.set_mask(pan_results.astype(dtype='uint8'))
             self.set_output_color_map(0, 1, self.colors, True)
-
         elif "bboxes" in out and "masks" in out:
             self.set_output(dataprocess.CInstanceSegmentationIO(), 1)
             # Get output :
             obj_detect_out = self.get_output(1)
             obj_detect_out.init("Mmlab_detection", 0, w, h)
+
             for bbox, label, score, mask in zip(out["bboxes"], out["labels"], out["scores"], out["masks"]):
                 conf = float(score)
                 if conf < conf_thr:
                     continue
+
                 x_rect = float(self.clamp(bbox[0], 0, w))
                 y_rect = float(self.clamp(bbox[1], 0, h))
                 w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
                 h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
                 cls = int(label)
                 mask = decode(mask)
-                obj_detect_out.add_object(index, 0,
-                                          cls, self.classes[cls], conf,
-                                         x_rect, y_rect, w_rect, h_rect, mask, self.colors[cls])
+                obj_detect_out.add_object(index, 0, cls, self.classes[cls], conf,
+                                          x_rect, y_rect, w_rect, h_rect, mask,
+                                          self.colors[cls])
                 index += 1
             self.set_output_color_map(0, 1, self.colors, True)
         elif "bboxes" in out:
@@ -232,10 +244,12 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
             # Get output :
             obj_detect_out = self.get_output(1)
             obj_detect_out.init("Mmlab_detection", 0)
+
             for bbox, label, score in zip(out["bboxes"], out["labels"], out["scores"]):
                 conf = float(score)
                 if conf < conf_thr:
                     continue
+
                 x_rect = float(self.clamp(bbox[0], 0, w))
                 y_rect = float(self.clamp(bbox[1], 0, h))
                 w_rect = float(self.clamp(bbox[2] - x_rect, 0, w))
@@ -264,7 +278,10 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         self.info.short_description = "Inference for MMDET from MMLAB detection models"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
-        self.info.version = "2.0.3"
+        self.info.version = "2.1.0"
+        self.info.max_python_version = "3.9"
+        self.info.max_python_version = "3.11"
+        self.info.min_ikomia_version = "0.15.0"
         self.info.icon_path = "icons/mmlab.png"
         self.info.authors = """Chen, Kai and Wang, Jiaqi and Pang, Jiangmiao and Cao, Yuhang and
              Xiong, Yu and Li, Xiaoxiao and Sun, Shuyang and Feng, Wansen and
@@ -285,6 +302,10 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         self.info.keywords = "mmdet, mmlab, detection, yolo, yolor, yolox, mask, rcnn"
         self.info.algo_type = core.AlgoType.INFER
         self.info.algo_tasks = "OBJECT_DETECTION"
+        self.info.hardware_config.min_cpu = 4
+        self.info.hardware_config.min_ram = 8
+        self.info.hardware_config.gpu_required = False
+        self.info.hardware_config.min_vram = 6
 
     def create(self, param=None):
         # Create process object
