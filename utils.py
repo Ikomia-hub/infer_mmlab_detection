@@ -1,5 +1,5 @@
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWidgets import QComboBox, QCompleter
+from PyQt6 import QtCore
+from PyQt6.QtWidgets import QComboBox, QCompleter
 
 
 def completion(word_list, widget, i=True):
@@ -7,9 +7,9 @@ def completion(word_list, widget, i=True):
     word_set = set(word_list)
     completer = QCompleter(word_set)
     if i:
-        completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
     else:
-        completer.setCaseSensitivity(QtCore.Qt.CaseSensitive)
+        completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseSensitive)
     completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
     widget.setCompleter(completer)
 

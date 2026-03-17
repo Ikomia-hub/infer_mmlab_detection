@@ -1,30 +1,15 @@
-# Copyright (C) 2021 Ikomia SAS
-# Contact: https://www.ikomia.com
-#
-# This file is part of the IkomiaStudio software.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+import os
+import yaml
+
+# PyQt GUI framework
+from PyQt6.QtWidgets import *
+
+from torch.cuda import is_available as is_cuda_available
 
 from ikomia import core, dataprocess
 from ikomia.utils import pyqtutils, qtconversion
-from infer_mmlab_detection.infer_mmlab_detection_process import InferMmlabDetectionParam
 
-# PyQt GUI framework
-from PyQt5.QtWidgets import *
-import os
-from torch.cuda import is_available as is_cuda_available
-import yaml
+from infer_mmlab_detection.infer_mmlab_detection_process import InferMmlabDetectionParam
 from infer_mmlab_detection.utils import Autocomplete
 
 # --------------------
