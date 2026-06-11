@@ -86,11 +86,14 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
         param = self.get_param_object()
         cuda_available = torch.cuda.is_available()
         cfg_file, ckpt_file = self.get_absolute_paths(param)
-        self.model = DetInferencer(cfg_file, ckpt_file, device='cuda:0' if param.cuda and cuda_available else 'cpu')
+        self.model = DetInferencer(
+            cfg_file, ckpt_file, device='cuda:0' if param.cuda and cuda_available else 'cpu')
         self.classes = self.model.model.dataset_meta['classes']
-        self.colors = np.array(np.random.randint(0, 255, (len(self.classes), 3)))
+        self.colors = np.array(np.random.randint(
+            0, 255, (len(self.classes), 3)))
         self.colors = [[int(c[0]), int(c[1]), int(c[2])] for c in self.colors]
-        print("Inference will run on " + ('cuda' if param.cuda and cuda_available else 'cpu'))
+        print("Inference will run on " +
+              ('cuda' if param.cuda and cuda_available else 'cpu'))
         param.update = False
 
     def init_long_process(self):
@@ -143,7 +146,8 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                 param.model_config = param.model_config[:-3]
             if os.path.isfile(yaml_file):
                 with open(yaml_file, "r") as f:
-                    models_list = yaml.load(f, Loader=yaml.FullLoader)['Models']
+                    models_list = yaml.load(
+                        f, Loader=yaml.FullLoader)['Models']
 
                 available_cfg_ckpt = {model_dict["Name"]: {'cfg': model_dict["Config"],
                                                            'ckpt': model_dict["Weights"]}
@@ -151,13 +155,15 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                 if param.model_config in available_cfg_ckpt:
                     cfg_file = available_cfg_ckpt[param.model_config]['cfg']
                     ckpt_file = available_cfg_ckpt[param.model_config]['ckpt']
-                    cfg_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), cfg_file)
+                    cfg_file = os.path.join(os.path.dirname(
+                        os.path.abspath(__file__)), cfg_file)
                     return cfg_file, ckpt_file
                 else:
                     raise Exception(
                         f"{param.model_config} does not exist for {param.model_name}. Available configs for are {', '.join(list(available_cfg_ckpt.keys()))}")
             else:
-                raise Exception(f"Model name {param.model_name} does not exist.")
+                raise Exception(
+                    f"Model name {param.model_name} does not exist.")
         else:
             if os.path.isfile(param.model_config):
                 cfg_file = param.model_config
@@ -168,12 +174,14 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
 
     @staticmethod
     def get_model_zoo():
-        configs_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs")
+        configs_folder = os.path.join(os.path.dirname(
+            os.path.abspath(__file__)), "configs")
         available_pairs = []
         for model_name in os.listdir(configs_folder):
             if model_name.startswith('_'):
                 continue
-            yaml_file = os.path.join(configs_folder, model_name, "metafile.yml")
+            yaml_file = os.path.join(
+                configs_folder, model_name, "metafile.yml")
             if os.path.isfile(yaml_file):
                 with open(yaml_file, "r") as f:
                     models_list = yaml.load(f, Loader=yaml.FullLoader)
@@ -182,9 +190,9 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                     if not isinstance(models_list, list):
                         continue
                 for model_dict in models_list:
-                    available_pairs.append({"model_name": model_name, "model_config": os.path.basename(model_dict["Name"])})
+                    available_pairs.append(
+                        {"model_name": model_name, "model_config": os.path.basename(model_dict["Name"])})
         return available_pairs
-
 
     def infer(self, img, conf_thr):
         h, w = np.shape(img)[:2]
@@ -240,7 +248,7 @@ class InferMmlabDetection(dataprocess.C2dImageTask):
                 h_rect = float(self.clamp(bbox[3] - y_rect, 0, h))
                 cls = int(label)
                 obj_detect_out.add_object(index, self.classes[cls], conf,
-                                         x_rect, y_rect, w_rect, h_rect, self.colors[cls])
+                                          x_rect, y_rect, w_rect, h_rect, self.colors[cls])
                 index += 1
         else:
             print("This model task is not one of Object Detection, Instance Segmentation or Panoptic Segmentation. Try another one")
@@ -259,12 +267,12 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         dataprocess.CTaskFactory.__init__(self)
         # Set process information as string here
         self.info.name = "infer_mmlab_detection"
-        self.info.short_description = "Inference for MMDET from MMLAB detection models"
+        self.info.short_description = "Inference for MMDET from OneDL MMDetection models"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
-        self.info.version = "2.2.0"
+        self.info.version = "3.0.0"
         self.info.max_python_version = "3.10"
-        self.info.max_python_version = "3.11"
+        # self.info.max_python_version = "3.11"
         self.info.min_ikomia_version = "0.16.0"
         self.info.icon_path = "icons/mmlab.png"
         self.info.authors = """Chen, Kai and Wang, Jiaqi and Pang, Jiangmiao and Cao, Yuhang and
@@ -278,10 +286,10 @@ class InferMmlabDetectionFactory(dataprocess.CTaskFactory):
         self.info.year = 2019
         self.info.license = "Apache-2.0 license"
         # URL of documentation
-        self.info.documentation_link = "https://mmdetection.readthedocs.io/en/latest/"
+        self.info.documentation_link = "https://onedl-mmdetection.readthedocs.io/en/latest/"
         # Code source repository
         self.info.repository = "https://github.com/Ikomia-hub/infer_mmlab_detection"
-        self.info.original_repository = "https://github.com/open-mmlab/mmdetection"
+        self.info.original_repository = "https://github.com/vbti-development/onedl-mmdetection"
         # Keywords used for search
         self.info.keywords = "mmdet, mmlab, detection, yolo, yolor, yolox, mask, rcnn"
         self.info.algo_type = core.AlgoType.INFER
