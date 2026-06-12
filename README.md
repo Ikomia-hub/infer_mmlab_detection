@@ -19,9 +19,9 @@
     </a> 
 </p>
 
-Run object detection and instance segmentation algorithms from MMLAB framework. 
+Run object detection and instance segmentation algorithms from the OneDL MMDetection framework.
 
-Models will come from MMLAB's model zoo if custom training is disabled. If not, you can choose to load your model trained with algorithm *train_mmlab_detection* from Ikomia HUB. In this case, make sure to set parameters for config file (.py) and model file (.pth). Both of these files are produced by the train algorithm.
+Models will come from OneDL's MMDetection model zoo if custom training is disabled. If not, you can choose to load your model trained with algorithm *train_mmlab_detection* from Ikomia HUB. In this case, make sure to set parameters for config file (.py) and model file (.pth). Both of these files are produced by the train algorithm.
 
 ![Example image](https://raw.githubusercontent.com/Ikomia-hub/infer_mmlab_detection/main/images/work-result.jpg)
 
